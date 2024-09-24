@@ -1,25 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ROSLIB from 'roslib';
 
 const FleetControls = () => {
   const [fleetSize, setFleetSize] = useState('');
+  const [ros, setRos] = useState(null);
 
-  // Setup the ROS connection
-  const ros = new ROSLIB.Ros({
-    url: 'ws://localhost:9090'
-  });
+  useEffect(() => {
+    // Setup the ROS connection when the component mounts
+    const rosInstance = new ROSLIB.Ros({
+      url: 'ws://localhost:9090'
+    });
 
-  ros.on('connection', function() {
-    console.log('Connected to websocket server.');
-  });
+    rosInstance.on('connection', () => {
+      console.log('Connected to websocket server.');
+    });
 
-  ros.on('error', function(error) {
-    console.log('Error connecting to websocket server: ', error);
-  });
+    rosInstance.on('error', (error) => {
+      console.log('Error connecting to websocket server: ', error);
+    });
 
-  ros.on('close', function() {
-    console.log('Connection to websocket server closed.');
-  });
+    rosInstance.on('close', () => {
+      console.log('Connection to websocket server closed.');
+    });
+
+    setRos(rosInstance);
+
+    // Cleanup ROS connection when the component unmounts
+    return () => {
+      if (rosInstance) {
+        rosInstance.close();
+        console.log('ROS connection closed.');
+      }
+    };
+  }, []);
 
   // Function to publish fleet size to ROS
   const handleFleetSizeSubmit = async (e) => {
@@ -29,23 +42,28 @@ const FleetControls = () => {
       alert('Please enter a valid fleet size.');
       return;
     }
-    
-    // Create a new ROS Topic
-    const topic = new ROSLIB.Topic({
-      ros: ros,
-      name: 'boat_count',
-      messageType: 'std_msgs/String'
-    });
 
-    // Create the message
-    const message = new ROSLIB.Message({
-      data: fleetSize.toString()
-    });
+    // Ensure ROS is connected before publishing
+    if (ros) {
+      // Create a new ROS Topic
+      const topic = new ROSLIB.Topic({
+        ros: ros,
+        name: 'boat_count',
+        messageType: 'std_msgs/Int32'  // Use 'Int32' since we're sending a number
+      });
 
-    // Publish the message
-    topic.publish(message);
+      // Create the message
+      const message = new ROSLIB.Message({
+        data: fleetSizeInt
+      });
 
-    alert('Fleet size updated successfully.');
+      // Publish the message
+      topic.publish(message);
+
+      alert('Fleet size updated successfully.');
+    } else {
+      console.error('ROS is not connected.');
+    }
   };
 
   return (
@@ -68,3 +86,4 @@ const FleetControls = () => {
 };
 
 export default FleetControls;
+

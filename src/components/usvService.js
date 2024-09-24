@@ -1,40 +1,55 @@
-// Assuming you have some URL to connect to the WebSocket server
-const WEBSOCKET_URL = 'ws://localhost:9090';
+// Optional: Make the WebSocket URL configurable
+const WEBSOCKET_URL = process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:9090';
 
 const subscribeToTopics = () => {
-  const socket = new WebSocket(WEBSOCKET_URL);
+  let socket;
 
-  socket.onopen = () => {
-    console.log('Connected to WebSocket server.');
+  const connectWebSocket = () => {
+    socket = new WebSocket(WEBSOCKET_URL);
 
-    // Subscribe to the boat_positions topic that contains the JSON-encoded positions
-    socket.send(JSON.stringify({
-      op: 'subscribe',
-      topic: 'boat_positions',
-      type: 'std_msgs/String'
-    }));
+    socket.onopen = () => {
+      console.log('Connected to WebSocket server.');
 
-    // You can subscribe to other topics in a similar manner
+      // Subscribe to the boat_positions topic that contains the JSON-encoded positions
+      socket.send(JSON.stringify({
+        op: 'subscribe',
+        topic: 'boat_positions',
+        type: 'std_msgs/String'
+      }));
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.topic === "boat_positions" && data.msg) {
+          const positions = JSON.parse(data.msg.data);  // Parse the JSON data into JavaScript objects
+          console.log('Received data:', positions);
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket connection closed. Reconnecting...');
+      // Attempt to reconnect after a delay
+      setTimeout(connectWebSocket, 5000);
+    };
   };
 
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.topic === "boat_positions" && data.msg) {
-      const positions = JSON.parse(data.msg.data);  // Parse the JSON data into JavaScript objects
-      console.log('Received data:', positions);
+  // Start the WebSocket connection
+  connectWebSocket();
+
+  return () => {
+    if (socket) {
+      socket.close();
+      console.log('WebSocket connection closed manually.');
     }
   };
-
-  socket.onerror = (error) => {
-    console.error('WebSocket error:', error);
-  };
-
-  socket.onclose = () => {
-    console.log('WebSocket connection closed');
-  };
-
-  // Optionally return the socket if you need to manage it outside of this function
-  return socket;
 };
 
 export { subscribeToTopics };

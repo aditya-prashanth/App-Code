@@ -23,7 +23,8 @@ export const WebSocketProvider = ({ children }) => {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        if (message.topic === "/boat_positions") {
+        // Ensure message is well-formed and contains the necessary fields
+        if (message.topic === "boat_positions" && message.msg && message.msg.data) {
           const positions = JSON.parse(message.msg.data); // Parse the array of positions
           setBoatPositions(positions); // Update state with new positions
         }
@@ -38,12 +39,16 @@ export const WebSocketProvider = ({ children }) => {
 
     ws.onclose = () => {
       console.log('WebSocket connection closed.');
+      setSocket(null);  // Reset the socket state
     };
 
     setSocket(ws);
 
     return () => {
-      ws.close();
+      if (ws) {
+        ws.close();
+        console.log('WebSocket connection closed on cleanup.');
+      }
     };
   }, []);
 

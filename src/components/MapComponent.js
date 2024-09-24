@@ -4,6 +4,16 @@ import 'leaflet/dist/leaflet.css';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import L from 'leaflet';
 
+// Random color generator for polyline
+const randomColor = () => {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+};
+
 const MapComponent = () => {
   const { socket } = useWebSocket();
   const [boatTrails, setBoatTrails] = useState({});
@@ -14,13 +24,12 @@ const MapComponent = () => {
     const handleData = (event) => {
       try {
         const message = JSON.parse(event.data);
-        // Corrected to subscribe to the right topic
         if (message.topic === "/boat_positions") {
-          const updates = JSON.parse(message.msg.data);  // Corrected to the right data field
+          const updates = JSON.parse(message.msg.data);
           updates.forEach(update => {
             const { boat_id, latitude, longitude } = update;
             setBoatTrails(prevTrails => {
-              const newTrails = {...prevTrails};
+              const newTrails = { ...prevTrails };
               if (!newTrails[boat_id]) {
                 newTrails[boat_id] = [];
               }
@@ -34,10 +43,14 @@ const MapComponent = () => {
       }
     };
 
-    socket?.addEventListener('message', handleData);
+    if (socket) {
+      socket.addEventListener('message', handleData);
+    }
 
     return () => {
-      socket?.removeEventListener('message', handleData);
+      if (socket) {
+        socket.removeEventListener('message', handleData);
+      }
     };
   }, [socket]);
 
@@ -55,7 +68,7 @@ const MapComponent = () => {
   // Handle marker drag end to update position
   const handleDragEnd = (event, index) => {
     const { lat, lng } = event.target.getLatLng();
-    setMarkers(prev => 
+    setMarkers(prev =>
       prev.map((marker, idx) => idx === index ? { ...marker, position: L.latLng(lat, lng) } : marker)
     );
   };
@@ -65,11 +78,11 @@ const MapComponent = () => {
       <button onClick={() => setBoatTrails({})}>
         Clear Trails
       </button>
-      <MapContainer 
-        center={[0, 0]} 
-        zoom={3} 
-        style={{ height: '100vh', width: '100%' }} 
-        whenCreated={mapInstance => { mapRef.current = mapInstance }}
+      <MapContainer
+        center={[0, 0]}
+        zoom={3}
+        style={{ height: '100vh', width: '100%' }}
+        whenCreated={mapInstance => { mapRef.current = mapInstance; }}
         onClick={handleMapClick}
       >
         <TileLayer
@@ -77,7 +90,7 @@ const MapComponent = () => {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         {Object.entries(boatTrails).map(([boatId, trail]) => (
-          <Polyline key={boatId} positions={trail} color="randomColor()" /> 
+          <Polyline key={boatId} positions={trail} color={randomColor()} /> 
         ))}
         {markers.map((marker, index) => (
           <Marker
@@ -97,4 +110,3 @@ const MapComponent = () => {
 };
 
 export default MapComponent;
-
